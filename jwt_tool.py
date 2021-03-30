@@ -16,6 +16,7 @@ import hashlib
 import hmac
 import base64
 import json
+import dateutil
 import random
 import argparse
 from datetime import datetime
@@ -251,7 +252,7 @@ def jwtOut(token, fromMod, desc=""):
 
 def setLog(jwt, genTime, logID, modulename, targetURL, additional):
     logLine = genTime+" | "+modulename+" | "+targetURL+" | "+additional
-    with open(logFilename, 'a') as logFile:
+    with open(logFilename, 'a', encoding='utf-8') as logFile:
         logFile.write(logID+" - "+logLine+" - "+jwt+"\n")
     return logID
 
@@ -1168,7 +1169,13 @@ def dissectPayl(paylDict, count=False):
         else:
             placeholder = "+"
         if claim in ["exp", "nbf", "iat"]:
-            timestamp = datetime.fromtimestamp(int(paylDict[claim]))
+            try:
+                timestamp = datetime.fromtimestamp(int(float(paylDict[claim])))
+            except:
+                print(paylDict[claim])
+                print(type(paylDict[claim]))
+                timestamp = datetime.strptime(paylDict[claim], "%Y-%m-%dT%H:%M:%S.%fZ")
+                #timestamp = parse(paylDict[claim].encode())		        
             if claim == "exp":
                 if int(timestamp.timestamp()) < nowtime:
                     expiredtoken = True
@@ -1278,7 +1285,7 @@ def rejigToken(headDict, paylDict, sig):
         cprintc("[*] "+comparestamps[0]+" was seen", "green")
         claimnum = 0
         for claim in comparestamps:
-            timeoff = int(paylDict[comparestamps[claimnum]])-int(paylDict[comparestamps[0]])
+            timeoff = int(float(paylDict[comparestamps[claimnum]]))-int(float(paylDict[comparestamps[0]]))
             if timeoff != 0:
                 timecalc = timeoff
                 if timecalc < 0:
@@ -1475,7 +1482,7 @@ def scanModePlaybook():
     else:
         cprintc("External service interactions not tested - enter listener URL into 'jwtconf.ini' to try this option", "red")
     # Accept Common HMAC secret (as alterative signature)
-    with open(config['input']['wordlist']) as commonPassList:
+    with open(config['input']['wordlist'], encoding='utf-8') as commonPassList:
         commonPass = commonPassList.readline().rstrip()
         while commonPass:
             newSig, newContents = signTokenHS(headDict, paylDict, commonPass, 256)
